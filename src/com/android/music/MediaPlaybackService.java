@@ -225,6 +225,8 @@ public class MediaPlaybackService extends Service implements
 	private RemoteControlClient mRemoteControlClient;
 	private Timer timer = new Timer();
 
+	private HeadsetReceiver headsetReceiver;
+
 	private Handler mMediaplayerHandler = new Handler() {
 		@Override
 		public void handleMessage(Message msg) {
@@ -534,11 +536,20 @@ public class MediaPlaybackService extends Service implements
 		// case.
 		Message msg = mDelayedStopHandler.obtainMessage();
 		mDelayedStopHandler.sendMessageDelayed(msg, IDLE_DELAY);
+
+		//Headset
+		IntentFilter receiverFilter = new IntentFilter(Intent.ACTION_HEADSET_PLUG);
+		headsetReceiver = new HeadsetReceiver();
+	    	registerReceiver( headsetReceiver, receiverFilter );
+		mService = IMediaPlaybackService.Stub.asInterface(mBinder);
 	}
 
 	@Override
 	public void onDestroy() {
 		sensorMan.unregisterListener(this);
+
+		//headset
+		unregisterReceiver(headsetReceiver);               
 
 		// Check that we're not being destroyed while something is still
 		// playing.
@@ -2811,6 +2822,23 @@ public class MediaPlaybackService extends Service implements
 	@Override
 	public void shakingStopped() {
 
+	}
+
+	public class HeadsetReceiver extends BroadcastReceiver {
+
+	    @Override
+	    public void onReceive(Context context, Intent intent) {
+	        if (!isInitialStickyBroadcast() && intent.getAction().equals(Intent.ACTION_HEADSET_PLUG) && intent.getIntExtra("state", 0)==1) {
+	    		try {
+	    			if (mService != null) {
+	    				if (!mService.isPlaying()) {
+	    					mService.play();
+	    				}
+	    			}
+	    		} catch (RemoteException ex) {
+	    		}
+	        }
+	    }
 	}
 
 }
